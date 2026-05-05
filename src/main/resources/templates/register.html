@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureChat Register</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <script th:src="@{/js/crypto-utils.js}"></script>
+</head>
+<body class="auth-page">
+<div class="auth-container">
+    <div class="auth-header">
+        <div class="lock-icon">🔐</div>
+        <h1>Create SecureChat Account</h1>
+        <p>Generate your RSA identity locally before registering with the server.</p>
+    </div>
+
+    <div id="statusMessage" class="alert" style="display:none;"></div>
+    <div id="keyGenStatus" class="alert">Waiting to generate RSA-2048 key pair in your browser.</div>
+
+    <div class="form-group">
+        <label for="username">Username</label>
+        <input id="username" type="text" maxlength="50" required>
+    </div>
+
+    <div class="form-group">
+        <label for="password">Password</label>
+        <input id="password" type="password" required>
+    </div>
+
+    <div class="form-group">
+        <label for="confirmPassword">Confirm Password</label>
+        <input id="confirmPassword" type="password" required>
+    </div>
+
+    <button class="btn-primary" type="button" onclick="registerUser()">Register Securely</button>
+
+    <div id="keyDisplay" class="key-display" style="display:none;">
+        <div class="key-section">
+            <h3>Public Key Preview</h3>
+            <textarea id="publicKeyDisplay" readonly></textarea>
+        </div>
+        <div class="key-section private-key">
+            <h3>Private Key Preview</h3>
+            <p class="key-warning">Warning: This private key is stored only in your browser localStorage for this academic demo.</p>
+            <textarea id="privateKeyDisplay" readonly></textarea>
+        </div>
+    </div>
+
+    <div class="auth-footer">
+        <p>Already registered? <a th:href="@{/login}">Login here</a></p>
+    </div>
+</div>
+
+<script>
+    /**
+     * Registers a user only after generating an RSA key pair in the browser so the server stores
+     * only the public key required for end-to-end encrypted messaging.
+     */
+    async function registerUser() {
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        const statusMessage = document.getElementById('statusMessage');
+        const keyGenStatus = document.getElementById('keyGenStatus');
+        const keyDisplay = document.getElementById('keyDisplay');
+
+        statusMessage.style.display = 'none';
+
+        if (!username || !password || !confirmPassword) {
+            showStatus('Please complete all fields before registering.', 'alert-error');
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            showStatus('Passwords do not match.', 'alert-error');
+            return;
+        }
+
+        try {
+            keyGenStatus.textContent = 'Generating RSA-2048 key pair locally...';
+            const keyPair = await CryptoUtils.generateRSAKeyPair();
+            const publicKey = await CryptoUtils.exportPublicKey(keyPair.publicKey);
+            const privateKey = await CryptoUtils.exportPrivateKey(keyPair.privateKey);
+
+            localStorage.setItem('privateKey_' + username, privateKey);
+
+            document.getElementById('publicKeyDisplay').value = publicKey.substring(0, 200) + '...';
+            document.getElementById('privateKeyDisplay').value = privateKey.substring(0, 200) + '...';
+            keyDisplay.style.display = 'block';
+            keyGenStatus.textContent = 'Key pair generated. Registering account with public key only.';
+
+            const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username,
+                    password,
+                    publicKey
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Registration failed.');
+            }
+
+            showStatus(data.message, 'alert-success');
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 2000);
+        } catch (error) {
+            keyGenStatus.textContent = 'Key generation or registration failed.';
+            showStatus(error.message || 'Registration failed.', 'alert-error');
+        }
+
+        /**
+         * Displays a styled status alert so the user sees whether browser-side key generation
+         * and secure registration succeeded.
+         */
+        function showStatus(message, cssClass) {
+            statusMessage.className = 'alert ' + cssClass;
+            statusMessage.textContent = message;
+            statusMessage.style.display = 'block';
+        }
+    }
+</script>
+</body>
+</html>

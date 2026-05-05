@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureChat</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<div id="serverData" th:data-current-user="${currentUser}" style="display:none;"></div>
+
+<div class="chat-layout">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div>
+                <div class="user-avatar" th:text="${#strings.substring(currentUser, 0, 1).toUpperCase()}">U</div>
+                <h2 th:text="${currentUser}">currentUser</h2>
+                <span class="status-badge">Secure session</span>
+            </div>
+            <a class="btn-primary logout-btn" th:href="@{/logout}">Logout</a>
+        </div>
+
+        <div class="form-group">
+            <input id="userSearch" type="text" placeholder="Search users..." oninput="filterUsers(this.value)">
+        </div>
+
+        <div class="user-list">
+            <div class="user-item"
+                 th:each="user : ${userList}"
+                 th:attr="data-username=${user}"
+                 onclick="openChat(this)">
+
+                <div class="user-avatar"
+                     th:text="${#strings.substring(user, 0, 1).toUpperCase()}">A</div>
+
+                <div>
+                    <div class="user-name" th:text="${user}">alice</div>
+                    <div class="user-meta">Click to chat</div>
+                </div>
+            </div>
+            <div class="empty-state" th:if="${#lists.isEmpty(userList)}">
+                No other registered users are available yet.
+            </div>
+        </div>
+    </aside>
+
+    <main class="chat-area">
+        <section id="welcomeScreen" class="welcome-screen">
+            <h1>SecureChat</h1>
+            <p>Select a user to start a conversation protected with RSA-OAEP, AES-256-CBC, and SHA-256 integrity checks.</p>
+        </section>
+
+        <section id="chatWindow" class="chat-window" style="display:none;">
+            <header class="chat-header">
+                <div class="chat-header-info">
+                    <div id="chatHeaderAvatar" class="user-avatar">U</div>
+                    <div>
+                        <h2 id="chatHeaderName">User</h2>
+                        <p id="chatHeaderStatus">Ready for encrypted chat</p>
+                    </div>
+                </div>
+                <div class="chat-header-actions">
+                    <button class="show-encrypted-btn" type="button" onclick="toggleEncryptedView()">Show Encrypted</button>
+                    <button class="show-encrypted-btn" type="button" onclick="closeChatWindow()">Close</button>
+                </div>
+            </header>
+
+            <div id="messagesContainer" class="messages-container"></div>
+
+            <div id="cryptoBar" class="crypto-bar">
+                RSA-OAEP secures the AES key, AES-256-CBC encrypts content, and SHA-256 verifies message integrity.
+            </div>
+
+            <div class="message-input-area">
+                <div class="input-wrapper">
+                    <input id="messageInput" type="text" placeholder="Type a secure message..." onkeypress="if(event.key==='Enter') sendMessage()">
+                </div>
+                <button id="sendBtn" class="send-btn" type="button" onclick="sendMessage()">Send</button>
+            </div>
+        </section>
+    </main>
+</div>
+
+<div id="encryptedPanel" class="encrypted-panel" style="display:none;">
+    <div class="encrypted-panel-header">
+        <h3>Encrypted Payload Details</h3>
+        <button class="show-encrypted-btn" type="button" onclick="toggleEncryptedView()">Close</button>
+    </div>
+    <div id="encryptedData"></div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+<script th:src="@{/js/crypto-utils.js}"></script>
+<script th:src="@{/js/chat.js}"></script>
+</body>
+</html>
